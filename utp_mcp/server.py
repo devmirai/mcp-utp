@@ -294,16 +294,15 @@ def read_conversation(conversation_id: str, page: int = 1) -> str:
 
 
 @mcp.tool()
-def send_message(to_user_id: str, message: str, section_id: str) -> str:
+def send_message(to_user_id: str, message: str) -> str:
     """Enviar un mensaje a un docente o companero.
 
     Args:
-        to_user_id: ID del destinatario (obtenerlo de get_messages).
+        to_user_id: ID del destinatario (obtenerlo de get_messages o get_contacts).
         message: Texto del mensaje a enviar.
-        section_id: ID de la seccion del curso en comun.
     """
     _init()
-    result = _class.send_message(to_user_id, message, section_id)
+    result = _class.send_message(to_user_id, message)
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 

@@ -273,15 +273,10 @@ class ClassClient:
         )
         return data.get("data", [])
 
-    def send_message(self, to_user_id: str, message: str, section_id: str) -> dict:
+    def send_message(self, to_user_id: str, message: str) -> dict:
         return self._post(
-            "/communication/student/message/send",
-            {
-                "userIdFrom": self._uuid,
-                "userIdTo": to_user_id,
-                "message": message,
-                "sectionId": section_id,
-            },
+            f"/communication/student/message/from/{self._uuid}/to/{to_user_id}",
+            {"message": message},
         )
 
     def close(self):
