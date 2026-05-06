@@ -245,9 +245,9 @@ class ClassClient:
         data = self._get("/course/student/activities/pending/resume")
         return data.get("data", [])
 
-    def get_course_content(self, section_id: str) -> dict:
+    def get_course_content(self, course_id: str, section_id: str) -> dict:
         try:
-            data = self._get(f"/learning/student/section/{section_id}/content")
+            data = self._get(f"/course/student/courses/{course_id}/sections/{section_id}/full")
             return data.get("data", {})
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:

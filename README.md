@@ -39,13 +39,13 @@ cp .env.example .env
 
 2. Edita `.env` con tus datos:
 ```env
-# UTP MCP Server - Credenciales (NUNCA commitear)
-UTP_USERNAME=U22201830
+# UTP MCP Server - Credenciales
+UTP_USERNAME=U12345678
 UTP_PASSWORD=tu_contraseña_aqui
 
 # Class Platform IDs (se obtienen una vez desde el browser)
-CLASS_USER_UUID=428c8d0f-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-CLASS_TENANT_ID=a5f469d2-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+CLASS_USER_UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+CLASS_TENANT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
 ```
 
 3. Para obtener `CLASS_USER_UUID` y `CLASS_TENANT_ID`:
@@ -106,10 +106,10 @@ Agrega en `claude_desktop_config.json`:
       "args": ["-m", "utp_mcp.server"],
       "cwd": "C:/Users/menca/Desktop/utp-mcp",
       "env": {
-        "UTP_USERNAME": "U22201830",
+        "UTP_USERNAME": "U12345678",
         "UTP_PASSWORD": "tu_contraseña",
-        "CLASS_USER_UUID": "428c8d0f-...",
-        "CLASS_TENANT_ID": "a5f469d2-..."
+        "CLASS_USER_UUID": "xxxxxxxx-xxxx-...",
+        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-..."
       }
     }
   }

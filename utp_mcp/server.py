@@ -162,41 +162,48 @@ def get_courses(career: str = None) -> str:
 
 
 @mcp.tool()
-def get_course_content(section_id: str) -> str:
+def get_course_content(course_id: str, section_id: str) -> str:
     """Obtener el contenido completo de un curso (unidades, temas, actividades).
 
     Args:
+        course_id: ID del curso (obtenerlo de get_courses).
         section_id: ID de la seccion del curso (obtenerlo de get_courses).
     """
     _init()
-    content = _class.get_course_content(section_id)
-    return json.dumps(content, ensure_ascii=False, indent=2)
+    content = _class.get_course_content(course_id, section_id)
+    return json.dumps(content.get("unities", []), ensure_ascii=False, indent=2)
 
 
 @mcp.tool()
-def get_course_materials(section_id: str) -> str:
+def get_course_materials(course_id: str, section_id: str) -> str:
     """Obtener los materiales (PDFs, PPTs, links) y el silabo de un curso.
 
     Extrae solo los archivos y enlaces del contenido del curso para facil acceso.
 
     Args:
+        course_id: ID del curso.
         section_id: ID de la seccion del curso.
     """
     _init()
-    content = _class.get_course_content(section_id)
+    content = _class.get_course_content(course_id, section_id)
     
     materials = []
-    # Content is usually a list of units, each with topics and activities
-    for unit in content:
-        for topic in unit.get("topics", []):
-            for activity in topic.get("activities", []):
-                if activity.get("type") in ["FILE", "LINK", "PAGE", "SCORM", "SYLLABUS"]:
+    # Content has unities -> themes -> contents
+    for unit in content.get("unities", []):
+        for theme in unit.get("themes", []):
+            for item in theme.get("contents", []):
+                if item.get("type") in ["FILE", "LINK", "PAGE", "SCORM", "SYLLABUS", "URL"]:
+                    url = None
+                    meta = item.get("metadata", {})
+                    if meta:
+                        url = meta.get("url") or meta.get("fileUrl")
+                    
                     materials.append({
-                        "title": activity.get("title"),
-                        "type": activity.get("type"),
-                        "unit": unit.get("unitName"),
-                        "topic": topic.get("topicName"),
-                        "url": activity.get("url") or activity.get("fileUrl")
+                        "title": item.get("title"),
+                        "type": item.get("type"),
+                        "unit": unit.get("name"),
+                        "topic": theme.get("name"),
+                        "url": url
                     })
     return json.dumps(materials, ensure_ascii=False, indent=2)
 
