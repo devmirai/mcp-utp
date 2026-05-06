@@ -1,0 +1,17 @@
+[project]
+name = "utp-mcp"
+version = "1.0.0"
+description = "MCP Server para conectar IAs con las plataformas academicas de la UTP Peru"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+utp-mcp = "utp_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+dist/
+*.egg-info/
+.cache/
+utp_cache.db
+node_modules/
+scratch/
+.agent/
