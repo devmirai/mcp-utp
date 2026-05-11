@@ -273,11 +273,88 @@ class ClassClient:
         )
         return data.get("data", [])
 
-    def send_message(self, to_user_id: str, message: str) -> dict:
+    def send_message(self, to_user_id: str, message: str, file_name: str = None, file_url: str = None) -> dict:
+        payload = {"message": message}
+        if file_name and file_url:
+            payload["fileName"] = file_name
+            payload["fileUrl"] = file_url
+            
         return self._post(
             f"/communication/student/message/from/{self._uuid}/to/{to_user_id}",
-            {"message": message},
+            payload,
         )
+
+    def upload_file_to_s3(self, file_path: str) -> tuple[str, str]:
+        """Sube un archivo local al S3 de la UTP y devuelve (nombre_archivo, url_final)."""
+        import os
+        import mimetypes
+        file_name = os.path.basename(file_path)
+        file_type, _ = mimetypes.guess_type(file_path)
+        if not file_type:
+            file_type = "application/octet-stream"
+            
+        # 1. Obtener URL prefirmada
+        init_res = self._post("/learning/general/files", {
+            "application_path": "pao/content",
+            "file_name": file_name,
+            "file_type": file_type
+        })
+        
+        inner_data = init_res.get("data", {}).get("data", {})
+        upload_url = inner_data.get("uploadURL")
+        if not upload_url:
+            raise Exception("No se pudo obtener la URL de subida de S3.")
+            
+        # 2. Subir archivo a S3
+        with open(file_path, "rb") as f:
+            file_data = f.read()
+            
+        put_resp = httpx.put(
+            upload_url,
+            content=file_data,
+            headers={"Content-Type": file_type},
+            timeout=60.0
+        )
+        put_resp.raise_for_status()
+        
+        # La URL final es la upload_url sin los parámetros de firma (query string)
+        final_url = upload_url.split("?")[0]
+        
+        return file_name, final_url
+
+    def search_users(self, query: str, section_id: str, page: int = 1) -> list:
+        data = self._get(
+            f"/core/student/{self._uuid}/search/list/users",
+            params={"q": query, "section": section_id, "page": page},
+        )
+        return data.get("data", [])
+
+    def get_course_forums(self, course_id: str, section_id: str) -> list:
+        data = self._get(f"/course/student/courses/{course_id}/sections/{section_id}/contents/forum/")
+        return data.get("data", [])
+
+    def get_forum_threads(self, course_id: str, section_id: str, forum_id: str, page: int = 0) -> dict:
+        comments = self._get(f"/forum/student/{self._uuid}/courses/{course_id}/sections/{section_id}/forums/{forum_id}/comment?role=student&page={page}")
+        return {
+            "threads": comments.get("data", {}).get("comments", [])
+        }
+
+    def reply_to_forum(self, course_id: str, section_id: str, forum_id: str, message: str, parent_id: str = None) -> dict:
+        payload = {
+            "description": message
+        }
+        if parent_id:
+            payload["parentId"] = parent_id
+        return self._post(
+            f"/forum/student/{self._uuid}/courses/{course_id}/sections/{section_id}/forums/{forum_id}/comment",
+            payload
+        )
+
+    def delete_forum_reply(self, course_id: str, section_id: str, forum_id: str, comment_id: str) -> dict:
+        url = f"https://api-pao.utpxpedition.com/forum/student/{self._uuid}/courses/{course_id}/sections/{section_id}/forums/{forum_id}/comment/{comment_id}"
+        resp = self._http.delete(url, headers=self._headers(), timeout=10.0)
+        resp.raise_for_status()
+        return {"success": True, "status": resp.status_code}
 
     def close(self):
         self._http.close()

@@ -208,6 +208,67 @@ def get_course_materials(course_id: str, section_id: str) -> str:
     return json.dumps(materials, ensure_ascii=False, indent=2)
 
 
+# ─── Tools: Forums ────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def get_course_forums(course_id: str, section_id: str) -> str:
+    """Obtener la lista de foros disponibles en un curso específico.
+    Útil para encontrar el forum_id necesario para leer o responder.
+
+    Args:
+        course_id: ID del curso (obtenerlo de get_courses).
+        section_id: ID de la sección del curso.
+    """
+    _init()
+    result = _class.get_course_forums(course_id, section_id)
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+@mcp.tool()
+def get_forum_threads(course_id: str, section_id: str, forum_id: str) -> str:
+    """Obtener el contenido de un foro, incluyendo el tema principal y los hilos/respuestas de los compañeros.
+
+    Args:
+        course_id: ID del curso.
+        section_id: ID de la sección del curso.
+        forum_id: ID del foro (obtenerlo de get_course_forums).
+    """
+    _init()
+    result = _class.get_forum_threads(course_id, section_id, forum_id)
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+@mcp.tool()
+def reply_to_forum(course_id: str, section_id: str, forum_id: str, message: str, parent_id: str = None) -> str:
+    """Publicar una respuesta o comentario en un foro.
+
+    Args:
+        course_id: ID del curso.
+        section_id: ID de la sección del curso.
+        forum_id: ID del foro (obtenerlo de get_course_forums).
+        message: El contenido en texto de la respuesta a enviar. (Puede incluir HTML, ej: <p>Hola</p>).
+        parent_id: (Opcional) ID del comentario al que estás respondiendo. Si lo omites, responderás al tema principal.
+    """
+    _init()
+    result = _class.reply_to_forum(course_id, section_id, forum_id, message, parent_id)
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
+@mcp.tool()
+def delete_forum_reply(course_id: str, section_id: str, forum_id: str, comment_id: str) -> str:
+    """Eliminar un comentario o respuesta tuya en un foro.
+
+    Args:
+        course_id: ID del curso.
+        section_id: ID de la sección del curso.
+        forum_id: ID del foro.
+        comment_id: ID del comentario a eliminar.
+    """
+    _init()
+    result = _class.delete_forum_reply(course_id, section_id, forum_id, comment_id)
+    return json.dumps(result, ensure_ascii=False, indent=2)
+
+
 # ─── Tools: Assignments ─────────────────────────────────────────────────────
 
 @mcp.tool()
@@ -294,15 +355,28 @@ def read_conversation(conversation_id: str, page: int = 1) -> str:
 
 
 @mcp.tool()
-def send_message(to_user_id: str, message: str) -> str:
-    """Enviar un mensaje a un docente o companero.
+def send_message(to_user_id: str, message: str, file_path: str = None) -> str:
+    """Enviar un mensaje a un docente o compañero, opcionalmente con un archivo adjunto.
 
     Args:
-        to_user_id: ID del destinatario (obtenerlo de get_messages o get_contacts).
+        to_user_id: ID del destinatario (obtenerlo de search_directory, get_contacts o get_messages).
         message: Texto del mensaje a enviar.
+        file_path: (Opcional) Ruta local absoluta del archivo a adjuntar (ej. C:/Users/.../Test.pdf).
     """
     _init()
-    result = _class.send_message(to_user_id, message)
+    file_name = None
+    file_url = None
+    
+    if file_path:
+        import os
+        if not os.path.exists(file_path):
+            return json.dumps({"error": f"El archivo no existe: {file_path}"})
+        try:
+            file_name, file_url = _class.upload_file_to_s3(file_path)
+        except Exception as e:
+            return json.dumps({"error": f"Error subiendo archivo: {str(e)}"})
+            
+    result = _class.send_message(to_user_id, message, file_name, file_url)
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
@@ -334,6 +408,42 @@ def get_procedures_status() -> str:
     _init()
     procedures = _portal.get_procedures()
     return json.dumps(procedures, ensure_ascii=False, indent=2)
+
+
+@mcp.tool()
+def search_directory(query: str) -> str:
+    """Buscar a cualquier alumno o docente en el directorio de la universidad por nombre o apellido.
+    Ideal para iniciar nuevos chats con personas que no están en la bandeja de entrada actual.
+
+    Args:
+        query: Nombre, apellido o fragmento a buscar (ej. "eduardo alberto sagastegui").
+    """
+    _init()
+    
+    # Necesitamos un section_id válido para realizar la búsqueda, podemos usar cualquier curso activo
+    courses = _class.get_dashboard_courses()
+    active_courses = [c for c in courses if c.get("active")]
+    
+    if not active_courses:
+        return json.dumps({"error": "No hay cursos activos disponibles para iniciar la búsqueda."})
+        
+    # Usamos el primer curso disponible como contexto de búsqueda
+    section_id = active_courses[0].get("sectionId")
+    
+    results = _class.search_users(query, section_id)
+    
+    contacts = []
+    for u in results:
+        contacts.append({
+            "id": u.get("id"),
+            "name": f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
+            "code": u.get("code"),
+            "email": u.get("email"),
+            "role": u.get("role"),
+            "campus": u.get("campusDesc")
+        })
+        
+    return json.dumps(contacts, ensure_ascii=False, indent=2)
 
 
 @mcp.tool()

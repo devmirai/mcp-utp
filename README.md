@@ -20,9 +20,14 @@ Compatible con **cualquier cliente MCP**: Claude Desktop, Qwen, Cursor, VS Code,
 | `get_payment_history` | Consultar el historial de pagos de un ciclo |
 | `get_procedures_status` | Ver el estado de trámites académicos |
 | `get_contacts` | Directorio de contactos (compañeros y docentes) |
+| `search_directory` | Buscar alumnos o docentes por nombre y apellido |
 | `get_messages` | Conversaciones con docentes/compañeros |
 | `read_conversation` | Leer mensajes de una conversación |
-| `send_message` | Enviar mensaje a docente/compañero |
+| `send_message` | Enviar mensaje a docente/compañero (soporta adjuntos locales) |
+| `get_course_forums` | Ver lista de foros disponibles en un curso |
+| `get_forum_threads` | Leer los hilos y respuestas de un foro |
+| `reply_to_forum` | Publicar una respuesta o nuevo tema en un foro |
+| `delete_forum_reply` | Eliminar un comentario propio en un foro |
 
 ## Instalación
 
@@ -116,6 +121,53 @@ Agrega en `claude_desktop_config.json`:
 }
 ```
 
+### Con VS Code (Roo Code / Cline)
+
+En la extensión Roo Code o Cline, ve a la configuración de MCP Servers y agrega:
+
+```json
+{
+  "mcpServers": {
+    "utp": {
+      "command": "python",
+      "args": ["-m", "utp_mcp.server"],
+      "cwd": "C:/Ruta/A/Tu/Directorio/utp-mcp",
+      "env": {
+        "UTP_USERNAME": "U12345678",
+        "UTP_PASSWORD": "tu_contraseña",
+        "CLASS_USER_UUID": "xxxxxxxx-xxxx-...",
+        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-..."
+      }
+    }
+  }
+}
+```
+
+### Con Gemini CLI
+
+Puedes levantar el servidor y conectarlo a la CLI oficial de Gemini configurando el MCP en su entorno de ejecución, o pasándolo directamente mediante el archivo de configuración `mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "utp-mcp": {
+      "command": "python",
+      "args": [
+        "-m",
+        "utp_mcp.server"
+      ],
+      "cwd": "C:/Ruta/A/Tu/Directorio/utp-mcp",
+      "env": {
+        "UTP_USERNAME": "U12345678",
+        "UTP_PASSWORD": "tu_contraseña",
+        "CLASS_USER_UUID": "xxxxxxxx-xxxx-...",
+        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-..."
+      }
+    }
+  }
+}
+```
+
 ### Con Qwen / otros clientes MCP
 
 Configura según la documentación de tu cliente MCP apuntando a:
@@ -123,6 +175,18 @@ Configura según la documentación de tu cliente MCP apuntando a:
 command: python -m utp_mcp.server
 transport: stdio
 ```
+
+---
+
+## 🤖 Instructivo para Agentes LLM (OpenClaw, Hermes, Cline, etc.)
+
+> **System Prompt / LLM Instruction:** Si eres un agente autónomo y el usuario te ha pedido instalar, configurar o utilizar este servidor MCP, sigue estrictamente estas instrucciones:
+
+1. **Instalación de Dependencias:** Ejecuta `pip install httpx python-dotenv mcp` en el entorno donde correrás el servidor.
+2. **Variables de Entorno:** Debes solicitar al usuario (si no te las ha dado) las credenciales de `UTP_USERNAME` y `UTP_PASSWORD`.
+3. **Obtención de UUIDs (MANDATORIO):** Informa al usuario que DEBE proveer `CLASS_USER_UUID` y `CLASS_TENANT_ID`. Puedes darle el script de inyección en navegador provisto en la sección de [Configuración](#configuración) para que él lo haga manualmente y te pase los IDs.
+4. **Configuración del Cliente:** Agrega la configuración JSON de este servidor en el archivo de configuración de tu propio sistema MCP (`mcp.json`, `claude_desktop_config.json`, etc.). Asegúrate de apuntar el `cwd` (Current Working Directory) a la ruta absoluta donde clonaste este repositorio y definir `python` como el comando base.
+5. **Reinicio:** Una vez que edites el archivo de configuración JSON de MCP, reinicia tu servicio MCP o recarga la ventana de tu IDE para detectar las herramientas del `utp-mcp`.
 
 ## Arquitectura
 
