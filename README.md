@@ -1,6 +1,6 @@
 # UTP MCP Server 🎓
 
-[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 Servidor MCP (Model Context Protocol) para conectar asistentes de IA con las plataformas académicas de la **Universidad Tecnológica del Perú (UTP)**.
 
@@ -229,5 +229,5 @@ transport: stdio
 
 ## Licencia
 
-Este proyecto está bajo la licencia **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)**. 
-Eres libre de usar, estudiar, modificar y compartir este código para cualquier propósito personal o académico, siempre y cuando **no se use con fines comerciales** y se otorgue el crédito correspondiente al autor original.
+Este proyecto está bajo la licencia **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)**. 
+Eres libre de usar, estudiar, modificar y compartir este código para cualquier propósito personal o académico, siempre y cuando **no se use con fines comerciales**, se otorgue el crédito correspondiente al autor original, y cualquier modificación o trabajo derivado se distribuya bajo esta misma licencia.
