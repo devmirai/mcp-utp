@@ -1,5 +1,7 @@
 # UTP MCP Server 🎓
 
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+
 Servidor MCP (Model Context Protocol) para conectar asistentes de IA con las plataformas académicas de la **Universidad Tecnológica del Perú (UTP)**.
 
 Compatible con **cualquier cliente MCP**: Claude Desktop, Qwen, Cursor, VS Code, etc.
@@ -224,3 +226,8 @@ transport: stdio
 | Portal UTP | `api-portal.utpxpedition.com/graphql` | GraphQL | Notas, Periodos |
 | Class UTP | `api-pao.utpxpedition.com` | REST | Cursos, Tareas, Mensajes, Calendario |
 | SSO | `sso.utp.edu.pe/auth/realms/Xpedition` | OIDC | Autenticación |
+
+## Licencia
+
+Este proyecto está bajo la licencia **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)**. 
+Eres libre de usar, estudiar, modificar y compartir este código para cualquier propósito personal o académico, siempre y cuando **no se use con fines comerciales** y se otorgue el crédito correspondiente al autor original.
