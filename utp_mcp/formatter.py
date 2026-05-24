@@ -9,51 +9,55 @@ import os
 
 COMPACT = os.getenv("MCP_COMPACT", "0") == "1"
 
+# Fields that are internal IDs for tool chaining — shown compactly in compact mode
+_INTERNAL_IDS = {"courseId", "sectionId", "activityId"}
 
-def fmt(data, compact_map: dict | None = None) -> str:
-    """Format data: compact or full JSON based on MCP_COMPACT env.
 
-    Args:
-        data: The data to format (list or dict).
-        compact_map: Optional mapping for list items.
-            Example: {"Titulo": "title", "Vence": "due_date"}
-            Only these fields will be shown, in order.
-    """
+def fmt(data) -> str:
+    """Format data: compact or full JSON based on MCP_COMPACT env."""
     if not COMPACT:
         return json.dumps(data, ensure_ascii=False, indent=2)
 
     if isinstance(data, list):
-        return _fmt_list(data, compact_map)
+        return _fmt_list(data)
     elif isinstance(data, dict):
         return _fmt_dict(data)
     else:
         return str(data)
 
 
-def _fmt_list(items: list, compact_map: dict | None = None) -> str:
+def _fmt_list(items: list) -> str:
     if not items:
         return "_(sin resultados)_"
 
-    if compact_map is None:
-        # Auto-detect keys from first item
-        first = items[0] if items else {}
-        keys = list(first.keys())[:6]
-        compact_map = {k: k for k in keys}
-
     lines = []
     for i, item in enumerate(items, 1):
+        # Separate display fields from internal IDs
+        display = {}
+        ids = {}
+        for k, v in item.items():
+            if k in _INTERNAL_IDS:
+                ids[k] = v
+            else:
+                display[k] = v
+
+        # Build display fields
         fields = []
-        for label, key in compact_map.items():
-            val = item.get(key, "")
+        for label, val in display.items():
             if isinstance(val, bool):
                 val = "✅" if val else "❌"
             elif isinstance(val, list):
                 val = ", ".join(str(v) for v in val[:3])
             elif isinstance(val, dict):
-                # Flatten one level
                 val = " ".join(f"{k}:{v}" for k, v in list(val.items())[:3])
             val_str = str(val) if val is not None else ""
             fields.append(f"  {label}: {val_str}")
+
+        # Add compact IDs line if any
+        if ids:
+            id_parts = " | ".join(f"{k[-3:]}:{v[:8]}..." for k, v in ids.items())
+            fields.append(f"  IDs: {id_parts}")
+
         header = f"**[ {i} ]**" if len(items) > 1 else ""
         body = "\n".join(fields)
         if header and len(items) > 1:
@@ -74,7 +78,7 @@ def _fmt_dict(d: dict) -> str:
                     short = ", ".join(f"{kk}={vv}" for kk, vv in list(item.items())[:3])
                     lines.append(f"  - {short}")
                 if len(v) > 5:
-                    lines.append(f"  ... y {len(v) - 5} mas")
+                    lines.append(f"  ... y {len(v) - 5} más")
             else:
                 lines.append(f"**{k}:** {', '.join(str(x) for x in v[:10])}")
         elif isinstance(v, dict):

@@ -155,10 +155,9 @@ def get_courses(career: str = None) -> str:
             "teacher_email": c.get("teacherEmail"),
             "period": c.get("period"),
             "progress": c.get("progress"),
+            "sectionId": c.get("sectionId"),
+            "courseId": c.get("courseId"),
             "career": c.get("acadCareer"),
-            # Internal IDs (for tool chaining):
-            "_sectionId": c.get("sectionId"),
-            "_courseId": c.get("courseId"),
         })
     return fmt(result)
 
@@ -285,18 +284,18 @@ def get_pending_assignments() -> str:
 
     result = []
     for a in activities:
-        entry = {
+        result.append({
             "title": a.get("activityTitle"),
             "type": a.get("type"),
             "due_date": a.get("finishAt"),
+            "published_at": a.get("publishAt"),
             "max_score": a.get("evaluationTopScore"),
             "is_graded": a.get("isQualificated"),
             "week": a.get("weekNumber"),
-        }
-        # Include published_at only if not graded (useful for pending)
-        if not a.get("isQualificated"):
-            entry["published_at"] = a.get("publishAt")
-        result.append(entry)
+            "courseId": a.get("courseId"),
+            "sectionId": a.get("sectionId"),
+            "activityId": a.get("activityId"),
+        })
     return fmt(result)
 
 
