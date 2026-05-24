@@ -14,6 +14,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .auth import AuthManager
 from .clients import ClassClient, PortalClient
+from .formatter import fmt
 
 load_dotenv()
 
@@ -52,7 +53,7 @@ def get_periods() -> str:
     """
     _init()
     periods = _portal.get_periods()
-    return json.dumps(periods, ensure_ascii=False, indent=2)
+    return fmt(periods)
 
 
 # ─── Tools: Courses + Grades + Schedule (Portal GraphQL) ────────────────────
@@ -73,7 +74,7 @@ def get_course_summary(period_id: str = "2262") -> str:
     """
     _init()
     data = _portal.get_course_summary(period_id)
-    return json.dumps(data, ensure_ascii=False, indent=2)
+    return fmt(data)
 
 
 @mcp.tool()
@@ -84,7 +85,7 @@ def get_grade_record() -> str:
     """
     _init()
     record = _portal.get_grade_record()
-    return json.dumps(record, ensure_ascii=False, indent=2)
+    return fmt(record[:1] if record else record)
 
 
 @mcp.tool()
@@ -122,7 +123,7 @@ def get_weekly_schedule(period_id: str = "2262") -> str:
             "classes": day_items,
         })
 
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 # ─── Tools: Courses (Class REST) ────────────────────────────────────────────
@@ -154,11 +155,12 @@ def get_courses(career: str = None) -> str:
             "teacher_email": c.get("teacherEmail"),
             "period": c.get("period"),
             "progress": c.get("progress"),
-            "sectionId": c.get("sectionId"),
-            "courseId": c.get("courseId"),
             "career": c.get("acadCareer"),
+            # Internal IDs (for tool chaining):
+            "_sectionId": c.get("sectionId"),
+            "_courseId": c.get("courseId"),
         })
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 @mcp.tool()
@@ -171,7 +173,7 @@ def get_course_content(course_id: str, section_id: str) -> str:
     """
     _init()
     content = _class.get_course_content(course_id, section_id)
-    return json.dumps(content.get("unities", []), ensure_ascii=False, indent=2)
+    return fmt(content.get("unities", []))
 
 
 @mcp.tool()
@@ -205,7 +207,7 @@ def get_course_materials(course_id: str, section_id: str) -> str:
                         "topic": theme.get("name"),
                         "url": url
                     })
-    return json.dumps(materials, ensure_ascii=False, indent=2)
+    return fmt(materials)
 
 
 # ─── Tools: Forums ────────────────────────────────────────────────────────────
@@ -221,7 +223,7 @@ def get_course_forums(course_id: str, section_id: str) -> str:
     """
     _init()
     result = _class.get_course_forums(course_id, section_id)
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 @mcp.tool()
@@ -235,7 +237,7 @@ def get_forum_threads(course_id: str, section_id: str, forum_id: str) -> str:
     """
     _init()
     result = _class.get_forum_threads(course_id, section_id, forum_id)
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 @mcp.tool()
@@ -251,7 +253,7 @@ def reply_to_forum(course_id: str, section_id: str, forum_id: str, message: str,
     """
     _init()
     result = _class.reply_to_forum(course_id, section_id, forum_id, message, parent_id)
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 @mcp.tool()
@@ -266,7 +268,7 @@ def delete_forum_reply(course_id: str, section_id: str, forum_id: str, comment_i
     """
     _init()
     result = _class.delete_forum_reply(course_id, section_id, forum_id, comment_id)
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 # ─── Tools: Assignments ─────────────────────────────────────────────────────
@@ -283,19 +285,19 @@ def get_pending_assignments() -> str:
 
     result = []
     for a in activities:
-        result.append({
+        entry = {
             "title": a.get("activityTitle"),
             "type": a.get("type"),
             "due_date": a.get("finishAt"),
-            "published_at": a.get("publishAt"),
             "max_score": a.get("evaluationTopScore"),
             "is_graded": a.get("isQualificated"),
             "week": a.get("weekNumber"),
-            "courseId": a.get("courseId"),
-            "sectionId": a.get("sectionId"),
-            "activityId": a.get("activityId"),
-        })
-    return json.dumps(result, ensure_ascii=False, indent=2)
+        }
+        # Include published_at only if not graded (useful for pending)
+        if not a.get("isQualificated"):
+            entry["published_at"] = a.get("publishAt")
+        result.append(entry)
+    return fmt(result)
 
 
 @mcp.tool()
@@ -308,7 +310,7 @@ def get_activity_detail(section_id: str, activity_id: str) -> str:
     """
     _init()
     detail = _class.get_activity_detail(section_id, activity_id)
-    return json.dumps(detail, ensure_ascii=False, indent=2)
+    return fmt(detail)
 
 
 # ─── Tools: Messages ────────────────────────────────────────────────────────
@@ -338,7 +340,7 @@ def get_messages(filter_type: str = "all", page: int = 1) -> str:
                 c.get("courseName") for c in to_info.get("commonCoursesList", [])
             ],
         })
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 @mcp.tool()
@@ -351,7 +353,7 @@ def read_conversation(conversation_id: str, page: int = 1) -> str:
     """
     _init()
     messages = _class.get_conversation(conversation_id, page)
-    return json.dumps(messages, ensure_ascii=False, indent=2)
+    return fmt(messages)
 
 
 @mcp.tool()
@@ -377,7 +379,7 @@ def send_message(to_user_id: str, message: str, file_path: str = None) -> str:
             return json.dumps({"error": f"Error subiendo archivo: {str(e)}"})
             
     result = _class.send_message(to_user_id, message, file_name, file_url)
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    return fmt(result)
 
 
 # ─── Tools: Payments & Procedures ────────────────────────────────────────────
@@ -387,7 +389,7 @@ def get_pending_payments() -> str:
     """Consultar los pagos pendientes y deudas actuales. (Solo lectura)"""
     _init()
     payments = _portal.get_pending_payments()
-    return json.dumps(payments, ensure_ascii=False, indent=2)
+    return fmt(payments)
 
 
 @mcp.tool()
@@ -399,7 +401,7 @@ def get_payment_history(period_id: str = "2262") -> str:
     """
     _init()
     history = _portal.get_payment_history(period_id)
-    return json.dumps(history, ensure_ascii=False, indent=2)
+    return fmt(history)
 
 
 @mcp.tool()
@@ -407,7 +409,7 @@ def get_procedures_status() -> str:
     """Consultar el estado de los tramites academicos solicitados (ej. constancias, seguro)."""
     _init()
     procedures = _portal.get_procedures()
-    return json.dumps(procedures, ensure_ascii=False, indent=2)
+    return fmt(procedures)
 
 
 @mcp.tool()
@@ -443,7 +445,7 @@ def search_directory(query: str) -> str:
             "campus": u.get("campusDesc")
         })
         
-    return json.dumps(contacts, ensure_ascii=False, indent=2)
+    return fmt(contacts)
 
 
 @mcp.tool()
@@ -461,7 +463,7 @@ def get_contacts() -> str:
                 "role": to_info.get("role"),
                 "courses": [c.get("courseName") for c in to_info.get("commonCoursesList", [])]
             }
-    return json.dumps(list(contacts.values()), ensure_ascii=False, indent=2)
+    return fmt(list(contacts.values()))
 
 
 # ─── Entry Point ─────────────────────────────────────────────────────────────
