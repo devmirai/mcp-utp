@@ -10,13 +10,14 @@ import time
 from datetime import datetime
 
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from mcp.server.fastmcp import FastMCP
 
 from .auth import AuthManager
 from .clients import ClassClient, PortalClient
 from .formatter import fmt
-
-load_dotenv()
 
 # ─── Server Init ─────────────────────────────────────────────────────────────
 mcp = FastMCP("UTP Academic")
@@ -78,13 +79,21 @@ def get_course_summary(period_id: str = "2262") -> str:
 
 
 @mcp.tool()
-def get_grade_record() -> str:
-    """Obtener record historico COMPLETO de notas de TODOS los ciclos cursados.
+def get_grade_record(period_id: str = None) -> str:
+    """Obtener record historico de notas. Por defecto solo el ciclo actual.
 
-    Incluye para cada ciclo: nombre del curso, nota final, creditos y estado (Aprobado/Desaprobado).
+    Args:
+        period_id: ID del periodo para filtrar. Ej: '2262' = 2026 Ciclo 1 Marzo.
+                  Omitir para obtener solo el ciclo actual.
     """
     _init()
     record = _portal.get_grade_record()
+    if period_id:
+        filtered = [r for r in record if r.get("items") and any(
+            str(item.get("cycle", "")) == period_id for item in r.get("items", [])
+        )]
+        return fmt(filtered if filtered else record)
+    # Default: return only current (first) cycle
     return fmt(record[:1] if record else record)
 
 

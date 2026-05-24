@@ -7,15 +7,18 @@ When MCP_COMPACT=1 (env), tools return compact output instead of full JSON.
 import json
 import os
 
-COMPACT = os.getenv("MCP_COMPACT", "0") == "1"
-
 # Fields that are internal IDs for tool chaining — shown compactly in compact mode
 _INTERNAL_IDS = {"courseId", "sectionId", "activityId"}
 
 
+def _is_compact() -> bool:
+    """Read MCP_COMPACT dynamically so .env is loaded before first use."""
+    return os.getenv("MCP_COMPACT", "0") == "1"
+
+
 def fmt(data) -> str:
     """Format data: compact or full JSON based on MCP_COMPACT env."""
-    if not COMPACT:
+    if not _is_compact():
         return json.dumps(data, ensure_ascii=False, indent=2)
 
     if isinstance(data, list):
@@ -32,7 +35,6 @@ def _fmt_list(items: list) -> str:
 
     lines = []
     for i, item in enumerate(items, 1):
-        # Separate display fields from internal IDs
         display = {}
         ids = {}
         for k, v in item.items():
@@ -41,7 +43,6 @@ def _fmt_list(items: list) -> str:
             else:
                 display[k] = v
 
-        # Build display fields
         fields = []
         for label, val in display.items():
             if isinstance(val, bool):
@@ -53,7 +54,6 @@ def _fmt_list(items: list) -> str:
             val_str = str(val) if val is not None else ""
             fields.append(f"  {label}: {val_str}")
 
-        # Add compact IDs line if any
         if ids:
             id_parts = " | ".join(f"{k[-3:]}:{v[:8]}..." for k, v in ids.items())
             fields.append(f"  IDs: {id_parts}")
