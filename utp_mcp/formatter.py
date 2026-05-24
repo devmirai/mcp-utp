@@ -60,8 +60,27 @@ def _fmt_list(items: list) -> str:
         for label, val in display.items():
             if isinstance(val, bool):
                 val = "✅" if val else "❌"
-            elif isinstance(val, list):
-                val = ", ".join(str(v) for v in val[:3])
+            elif isinstance(val, list) and val:
+                if isinstance(val[0], dict):
+                    # Summarize list of dicts: show count + key fields
+                    count = len(val)
+                    # Extract up to 3 most relevant fields from first item
+                    first = val[0]
+                    priority_keys = [k for k in ("courseName", "name", "title", "cycle", "grade", "status", "approvalStatus") if k in first]
+                    if priority_keys:
+                        summaries = []
+                        for item in val[:5]:
+                            parts = f"{priority_keys[0]}={item.get(priority_keys[0], '?')}"
+                            if len(priority_keys) > 1:
+                                parts += f" ({priority_keys[1]}={item.get(priority_keys[1], '?')})"
+                            summaries.append(parts)
+                        val = "; ".join(summaries)
+                        if count > 5:
+                            val += f" ...y {count - 5} más"
+                    else:
+                        val = f"{count} items"
+                else:
+                    val = ", ".join(str(v) for v in val[:3])
             elif isinstance(val, dict):
                 val = " ".join(f"{k}:{v}" for k, v in list(val.items())[:3])
             val_str = str(val) if val is not None else ""

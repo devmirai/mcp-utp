@@ -80,21 +80,39 @@ def get_course_summary(period_id: str = "2262") -> str:
 
 @mcp.tool()
 def get_grade_record(period_id: str = None) -> str:
-    """Obtener record historico de notas. Por defecto solo el ciclo actual.
+    """Obtener record historico de notas. Por defecto solo el ciclo mas reciente.
 
     Args:
         period_id: ID del periodo para filtrar. Ej: '2262' = 2026 Ciclo 1 Marzo.
-                  Omitir para obtener solo el ciclo actual.
+                  Omitir para obtener solo el ciclo mas reciente.
     """
     _init()
     record = _portal.get_grade_record()
+    if not record:
+        return fmt([])
+
     if period_id:
-        filtered = [r for r in record if r.get("items") and any(
-            str(item.get("cycle", "")) == period_id for item in r.get("items", [])
-        )]
-        return fmt(filtered if filtered else record)
-    # Default: return only current (first) cycle
-    return fmt(record[:1] if record else record)
+        # Filter items within each block by cycle
+        filtered_blocks = []
+        for r in record:
+            matching_items = [
+                item for item in r.get("items", [])
+                if str(item.get("cycle", "")) == period_id
+            ]
+            if matching_items:
+                block = dict(r)
+                block["items"] = matching_items
+                filtered_blocks.append(block)
+        return fmt(filtered_blocks if filtered_blocks else [])
+
+    # Default: return the block with the most recent cycle
+    # Find block with max cycle value in its items
+    def max_cycle(block):
+        cycles = [str(item.get("cycle", "")) for item in block.get("items", []) if item.get("cycle")]
+        return max(cycles) if cycles else ""
+
+    current_block = max(record, key=max_cycle)
+    return fmt([current_block])
 
 
 @mcp.tool()
