@@ -17,7 +17,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .auth import AuthManager
 from .clients import ClassClient, PortalClient
-from .formatter import fmt
+from .formatter import fmt, fmt_error
 
 # ─── Server Init ─────────────────────────────────────────────────────────────
 mcp = FastMCP("UTP Academic")
@@ -380,11 +380,11 @@ def send_message(to_user_id: str, message: str, file_path: str = None) -> str:
     if file_path:
         import os
         if not os.path.exists(file_path):
-            return json.dumps({"error": f"El archivo no existe: {file_path}"})
+            return fmt_error(f"El archivo no existe: {file_path}")
         try:
             file_name, file_url = _class.upload_file_to_s3(file_path)
         except Exception as e:
-            return json.dumps({"error": f"Error subiendo archivo: {str(e)}"})
+            return fmt_error(f"Error subiendo archivo: {str(e)}")
             
     result = _class.send_message(to_user_id, message, file_name, file_url)
     return fmt(result)
@@ -435,7 +435,7 @@ def search_directory(query: str) -> str:
     active_courses = [c for c in courses if c.get("active")]
     
     if not active_courses:
-        return json.dumps({"error": "No hay cursos activos disponibles para iniciar la búsqueda."})
+        return fmt_error("No hay cursos activos disponibles para iniciar la búsqueda.")
         
     # Usamos el primer curso disponible como contexto de búsqueda
     section_id = active_courses[0].get("sectionId")

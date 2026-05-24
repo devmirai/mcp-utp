@@ -7,7 +7,7 @@ When MCP_COMPACT=1 (env), tools return compact output instead of full JSON.
 import json
 import os
 
-# Fields that are internal IDs for tool chaining — shown compactly in compact mode
+# Fields that are internal IDs for tool chaining — shown in compact form
 _INTERNAL_IDS = {"courseId", "sectionId", "activityId"}
 
 
@@ -25,13 +25,26 @@ def fmt(data) -> str:
         return _fmt_list(data)
     elif isinstance(data, dict):
         return _fmt_dict(data)
+    elif isinstance(data, str):
+        return data
     else:
         return str(data)
+
+
+def fmt_error(message: str) -> str:
+    """Format an error message consistently in both modes."""
+    if not _is_compact():
+        return json.dumps({"error": message}, ensure_ascii=False, indent=2)
+    return f"**Error:** {message}"
 
 
 def _fmt_list(items: list) -> str:
     if not items:
         return "_(sin resultados)_"
+
+    # Handle non-dict items (scalars, None)
+    if items and not isinstance(items[0], dict):
+        return "\n".join(f"- {item}" for item in items)
 
     lines = []
     for i, item in enumerate(items, 1):
@@ -54,8 +67,9 @@ def _fmt_list(items: list) -> str:
             val_str = str(val) if val is not None else ""
             fields.append(f"  {label}: {val_str}")
 
+        # Full IDs for tool chaining (not truncated)
         if ids:
-            id_parts = " | ".join(f"{k[-3:]}:{v[:8]}..." for k, v in ids.items())
+            id_parts = " | ".join(f"{k}: {v}" for k, v in ids.items())
             fields.append(f"  IDs: {id_parts}")
 
         header = f"**[ {i} ]**" if len(items) > 1 else ""
