@@ -4,7 +4,7 @@
 
 Servidor MCP (Model Context Protocol) para conectar asistentes de IA con las plataformas académicas de la **Universidad Tecnológica del Perú (UTP)**.
 
-Compatible con **cualquier cliente MCP**: Claude Desktop, Qwen, Cursor, VS Code, etc.
+Compatible con **cualquier cliente MCP**: Claude Desktop, Qwen, Cursor, VS Code, OpenClaw, etc.
 
 ## ¿Qué puede hacer?
 
@@ -16,7 +16,7 @@ Compatible con **cualquier cliente MCP**: Claude Desktop, Qwen, Cursor, VS Code,
 | `get_activity_detail` | Detalle de una tarea (calificación, etc.) |
 | `get_course_content` | Contenido completo de un curso |
 | `get_periods` | Todos los periodos académicos |
-| `get_grade_record` | Record histórico completo de notas |
+| `get_grade_record` | Record de notas. Default: solo ciclo actual. Opcional: `period_id` para filtrar |
 | `get_weekly_schedule` | Horario semanal con clases, horas y modalidad |
 | `get_pending_payments` | Consultar deudas y cuotas pendientes |
 | `get_payment_history` | Consultar el historial de pagos de un ciclo |
@@ -101,6 +101,51 @@ CLASS_TENANT_ID=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
 python -m utp_mcp.server
 ```
 
+### Modo Compacto (ahorro de tokens)
+
+El servidor soporta un modo compacto que reduce el tamaño de las respuestas en **20-75%** de tokens, formateando la salida como texto estructurado en vez de JSON pretty-printed.
+
+Activar mediante variable de entorno:
+
+```bash
+MCP_COMPACT=1 python -m utp_mcp.server
+```
+
+O en la configuración del cliente MCP:
+
+```json
+{
+  "mcpServers": {
+    "utp": {
+      "command": "python",
+      "args": ["-m", "utp_mcp.server"],
+      "cwd": "/ruta/a/mcp-utp",
+      "env": {
+        "UTP_USERNAME": "U12345678",
+        "UTP_PASSWORD": "tu_contraseña",
+        "CLASS_USER_UUID": "xxxxxxxx-xxxx-...",
+        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-...",
+        "MCP_COMPACT": "1"
+      }
+    }
+  }
+}
+```
+
+**Comparación de tamaños (con datos reales):**
+
+| Tool | JSON | Compact | Ahorro |
+|------|------|---------|--------|
+| `get_pending_assignments` | 411 chars | 338 chars | 18% |
+| `get_periods` (9 ciclos) | 564 chars | 453 chars | 20% |
+| `get_grade_record` (ciclo actual) | 1,193 chars | 295 chars | **76%** |
+| `get_pending_payments` (5 cuotas) | 701 chars | 543 chars | 23% |
+| `get_courses` (1 curso) | 378 chars | 234 chars | 38% |
+
+El modo compacto preserva todos los IDs internos (courseId, sectionId, activityId) necesarios para tool chaining, mostrándolos de forma compacta al final de cada item.
+
+Por defecto el servidor retorna JSON completo (compatible con todos los clientes). El modo compacto es totalmente opcional y no rompe ninguna integración existente.
+
 ### Con Claude Desktop
 
 Agrega en `claude_desktop_config.json`:
@@ -116,7 +161,8 @@ Agrega en `claude_desktop_config.json`:
         "UTP_USERNAME": "U12345678",
         "UTP_PASSWORD": "tu_contraseña",
         "CLASS_USER_UUID": "xxxxxxxx-xxxx-...",
-        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-..."
+        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-...",
+        "MCP_COMPACT": "1"
       }
     }
   }
@@ -138,7 +184,31 @@ En la extensión Roo Code o Cline, ve a la configuración de MCP Servers y agreg
         "UTP_USERNAME": "U12345678",
         "UTP_PASSWORD": "tu_contraseña",
         "CLASS_USER_UUID": "xxxxxxxx-xxxx-...",
-        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-..."
+        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-...",
+        "MCP_COMPACT": "1"
+      }
+    }
+  }
+}
+```
+
+### Con OpenClaw
+
+En la configuración del agente MCP:
+
+```json
+{
+  "mcpServers": {
+    "utp": {
+      "command": "python",
+      "args": ["-m", "utp_mcp.server"],
+      "cwd": "/home/mirai/.openclaw/workspace/mcp-utp",
+      "env": {
+        "UTP_USERNAME": "U22201830",
+        "UTP_PASSWORD": "***",
+        "CLASS_USER_UUID": "428c8d0f-...",
+        "CLASS_TENANT_ID": "a5f469d2-...",
+        "MCP_COMPACT": "1"
       }
     }
   }
@@ -147,23 +217,21 @@ En la extensión Roo Code o Cline, ve a la configuración de MCP Servers y agreg
 
 ### Con Gemini CLI
 
-Puedes levantar el servidor y conectarlo a la CLI oficial de Gemini configurando el MCP en su entorno de ejecución, o pasándolo directamente mediante el archivo de configuración `mcp.json`:
+Puedes levantar el servidor y conectarlo a la CLI oficial de Gemini configurando el MCP en su entorno de ejecución:
 
 ```json
 {
   "mcpServers": {
     "utp-mcp": {
       "command": "python",
-      "args": [
-        "-m",
-        "utp_mcp.server"
-      ],
+      "args": ["-m", "utp_mcp.server"],
       "cwd": "C:/Ruta/A/Tu/Directorio/utp-mcp",
       "env": {
         "UTP_USERNAME": "U12345678",
         "UTP_PASSWORD": "tu_contraseña",
         "CLASS_USER_UUID": "xxxxxxxx-xxxx-...",
-        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-..."
+        "CLASS_TENANT_ID": "yyyyyyyy-yyyy-...",
+        "MCP_COMPACT": "1"
       }
     }
   }
@@ -189,6 +257,7 @@ transport: stdio
 3. **Obtención de UUIDs (MANDATORIO):** Informa al usuario que DEBE proveer `CLASS_USER_UUID` y `CLASS_TENANT_ID`. Puedes darle el script de inyección en navegador provisto en la sección de [Configuración](#configuración) para que él lo haga manualmente y te pase los IDs.
 4. **Configuración del Cliente:** Agrega la configuración JSON de este servidor en el archivo de configuración de tu propio sistema MCP (`mcp.json`, `claude_desktop_config.json`, etc.). Asegúrate de apuntar el `cwd` (Current Working Directory) a la ruta absoluta donde clonaste este repositorio y definir `python` como el comando base.
 5. **Reinicio:** Una vez que edites el archivo de configuración JSON de MCP, reinicia tu servicio MCP o recarga la ventana de tu IDE para detectar las herramientas del `utp-mcp`.
+6. **Modo Compacto (recomendado):** Agrega `"MCP_COMPACT": "1"` en la sección `env` de la configuración para reducir el consumo de tokens en ~20-75% por respuesta.
 
 ## Arquitectura
 
