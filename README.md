@@ -34,7 +34,7 @@ Compatible con **cualquier cliente MCP**: Claude Desktop, Qwen, Cursor, VS Code,
 ## Instalación
 
 ```bash
-pip install mcp httpx python-dotenv
+pip install "mcp<2" httpx python-dotenv
 ```
 
 ## Configuración
@@ -252,7 +252,7 @@ transport: stdio
 
 > **System Prompt / LLM Instruction:** Si eres un agente autónomo y el usuario te ha pedido instalar, configurar o utilizar este servidor MCP, sigue estrictamente estas instrucciones:
 
-1. **Instalación de Dependencias:** Ejecuta `pip install httpx python-dotenv mcp` en el entorno donde correrás el servidor.
+1. **Instalación de Dependencias:** Ejecuta `pip install httpx python-dotenv "mcp<2"` en el entorno donde correrás el servidor.
 2. **Variables de Entorno:** Debes solicitar al usuario (si no te las ha dado) las credenciales de `UTP_USERNAME` y `UTP_PASSWORD`.
 3. **Obtención de UUIDs (MANDATORIO):** Informa al usuario que DEBE proveer `CLASS_USER_UUID` y `CLASS_TENANT_ID`. Puedes darle el script de inyección en navegador provisto en la sección de [Configuración](#configuración) para que él lo haga manualmente y te pase los IDs.
 4. **Configuración del Cliente:** Agrega la configuración JSON de este servidor en el archivo de configuración de tu propio sistema MCP (`mcp.json`, `claude_desktop_config.json`, etc.). Asegúrate de apuntar el `cwd` (Current Working Directory) a la ruta absoluta donde clonaste este repositorio y definir `python` como el comando base.
@@ -294,7 +294,7 @@ transport: stdio
 |-----------|---------|------|-------|
 | Portal UTP | `api-portal.utpxpedition.com/graphql` | GraphQL | Notas, Periodos |
 | Class UTP | `api-pao.utpxpedition.com` | REST | Cursos, Tareas, Mensajes, Calendario |
-| SSO | `sso.utp.edu.pe/auth/realms/Xpedition` | OIDC | Autenticación |
+| SSO | `auth.utp.edu.pe/realms/Xpedition` | OIDC | Autenticación |
 
 ## Licencia
 
