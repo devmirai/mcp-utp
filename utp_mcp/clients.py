@@ -1,6 +1,8 @@
 """UTP MCP Server — API Clients for Portal (GraphQL) and Class (REST)."""
 
+import mimetypes
 import os
+import re
 import time
 
 import httpx
@@ -11,6 +13,18 @@ from .auth import AuthManager
 # ─── Constants ───────────────────────────────────────────────────────────────
 PORTAL_GRAPHQL = "https://api-portal.utpxpedition.com/graphql"
 CLASS_API = "https://api-pao.utpxpedition.com"
+
+# Tipos Office que algunos sistemas no tienen en mimetypes
+for _ext, _mime in {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".doc": "application/msword",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".xls": "application/vnd.ms-excel",
+    ".rar": "application/x-rar-compressed",
+}.items():
+    mimetypes.add_type(_mime, _ext)
 
 DAYS_MAP = {"1": "Lunes", "2": "Martes", "3": "Miércoles", "4": "Jueves", "5": "Viernes", "6": "Sábado", "7": "Domingo"}
 
@@ -284,43 +298,84 @@ class ClassClient:
             payload,
         )
 
-    def upload_file_to_s3(self, file_path: str) -> tuple[str, str]:
-        """Sube un archivo local al S3 de la UTP y devuelve (nombre_archivo, url_final)."""
-        import os
-        import mimetypes
+    @staticmethod
+    def _sanitize_file_name(name: str) -> str:
+        """Igual que el front (parceNameFile): reemplaza ;:></*%$ y todos los puntos salvo el de la extensión."""
+        name = re.sub(r"[;:></*%$]", "_", name)
+        return re.sub(r"[.](?=.*[.])", "_", name)
+
+    def upload_file(self, file_path: str, application_path: str = "pao/content") -> dict:
+        """Sube un archivo local al S3 de la UTP (mismo flujo que el front).
+
+        Devuelve {"name", "url", "size", "type"} listo para adjuntar en mensajes o tareas.
+        """
         file_name = os.path.basename(file_path)
         file_type, _ = mimetypes.guess_type(file_path)
         if not file_type:
             file_type = "application/octet-stream"
-            
+
         # 1. Obtener URL prefirmada
         init_res = self._post("/learning/general/files", {
-            "application_path": "pao/content",
-            "file_name": file_name,
-            "file_type": file_type
+            "application_path": application_path,
+            "file_name": self._sanitize_file_name(file_name),
+            "file_type": file_type,
         })
-        
         inner_data = init_res.get("data", {}).get("data", {})
         upload_url = inner_data.get("uploadURL")
         if not upload_url:
             raise Exception("No se pudo obtener la URL de subida de S3.")
-            
+
         # 2. Subir archivo a S3
         with open(file_path, "rb") as f:
             file_data = f.read()
-            
-        put_resp = httpx.put(
-            upload_url,
-            content=file_data,
-            headers={"Content-Type": file_type},
-            timeout=60.0
-        )
+        put_resp = httpx.put(upload_url, content=file_data, headers={"Content-Type": file_type}, timeout=120.0)
         put_resp.raise_for_status()
-        
-        # La URL final es la upload_url sin los parámetros de firma (query string)
-        final_url = upload_url.split("?")[0]
-        
-        return file_name, final_url
+
+        # 3. URL pública: la que devuelve la API (path.bucket_url) o la prefirmada sin firma
+        final_url = (inner_data.get("path") or {}).get("bucket_url") or upload_url.split("?")[0]
+        return {"name": file_name, "url": final_url, "size": len(file_data), "type": file_type}
+
+    def upload_file_to_s3(self, file_path: str) -> tuple[str, str]:
+        """Sube un archivo local al S3 de la UTP y devuelve (nombre_archivo, url_final)."""
+        up = self.upload_file(file_path)
+        return up["name"], up["url"]
+
+    # ─── Homework submission ─────────────────────────────────────────────────
+    def get_homework(self, section_id: str, homework_id: str) -> dict:
+        """Datos de la tarea (título, fechas, intentos permitidos, si es grupal)."""
+        return self._get(f"/course/student/sections/{section_id}/homeworks/{homework_id}").get("data", {})
+
+    def get_homework_resume(self, section_id: str, homework_id: str) -> dict:
+        """Estado de la tarea para el alumno (NOT_DELIVERED, DELIVERED, etc.)."""
+        return self._get(f"/course/student/sections/{section_id}/homeworks/{homework_id}/resume").get("data", {})
+
+    def get_homework_assignment(self, section_id: str, homework_id: str) -> dict:
+        """Asignación del alumno para la tarea: id, intentos hechos/restantes, equipo."""
+        data = self._get(
+            f"/course/student/sections/{section_id}/assignments",
+            params={"studentId": self._uuid, "homeworkId": homework_id},
+        )
+        assignments = data.get("data", {}).get("assignments", [])
+        return assignments[0] if assignments else {}
+
+    def send_homework(self, section_id: str, assignment_id: str, files: list, comment: str | None = None,
+                      submission_type: str | None = None) -> dict:
+        """Entrega individual. files: [{"id","name","url","size"}]."""
+        resp = self._http.put(
+            f"/course/student/sections/{section_id}/assignments/{assignment_id}/send",
+            headers=self._headers(),
+            json={"files": files, "comment": comment, "submissionType": submission_type},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def send_team_homework(self, section_id: str, homework_id: str, team_set_id: str, team_id: str,
+                           files: list, comment: str | None = None) -> dict:
+        """Entrega grupal (tarea con isGroup=true)."""
+        return self._post(
+            f"/course/student/sections/{section_id}/homework/{homework_id}/teams/{team_set_id}/send",
+            {"files": files, "teamId": team_id, "comment": comment},
+        )
 
     def search_users(self, query: str, section_id: str, page: int = 1) -> list:
         data = self._get(
