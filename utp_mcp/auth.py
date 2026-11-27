@@ -8,7 +8,7 @@ import httpx
 import os
 
 
-TOKEN_URL = "https://sso.utp.edu.pe/auth/realms/Xpedition/protocol/openid-connect/token"
+TOKEN_URL = "https://auth.utp.edu.pe/realms/Xpedition/protocol/openid-connect/token"
 
 # Config per platform
 CLIENTS = {

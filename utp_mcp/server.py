@@ -7,8 +7,10 @@ Transport: stdio (universal, works with any MCP client).
 import json
 import os
 import time
+import uuid
 from datetime import datetime
 
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -331,6 +333,116 @@ def get_activity_detail(section_id: str, activity_id: str) -> str:
     _init()
     detail = _class.get_activity_detail(section_id, activity_id)
     return fmt(detail)
+
+
+def _homework_status(section_id: str, homework_id: str) -> dict:
+    hw = _class.get_homework(section_id, homework_id)
+    resume = _class.get_homework_resume(section_id, homework_id)
+    asg = _class.get_homework_assignment(section_id, homework_id)
+    attempts = asg.get("attempts") or []
+    return {
+        "title": hw.get("title"),
+        "teacher": hw.get("teacherName"),
+        "available_from": hw.get("availableFrom"),
+        "available_until": hw.get("availableUntil"),
+        "server_time": resume.get("currentDate"),
+        "is_group": bool(hw.get("isGroup")),
+        "is_flexible_evaluation": bool(resume.get("isFlexibleEvaluation")),
+        "homework_status": resume.get("homeworkStatus"),
+        "assignment_status": asg.get("status"),
+        "attempts_allowed": hw.get("attempts"),
+        "attempts_used": len(attempts),
+        "attempts_left": asg.get("attemptsLeft"),
+        "last_attempt": attempts[-1] if attempts else None,
+        "score": asg.get("score"),
+        "feedback": asg.get("feedback"),
+        "assignment_id": asg.get("id"),
+        "team_set_id": asg.get("teamSetId"),
+        "team_id": asg.get("teamId"),
+    }
+
+
+@mcp.tool()
+def get_homework_submission(section_id: str, homework_id: str) -> str:
+    """Ver el estado de entrega de una tarea: plazo, intentos permitidos/usados/restantes,
+    archivos ya entregados, nota y feedback. (Solo lectura)
+
+    Args:
+        section_id: ID de la seccion del curso (sectionId).
+        homework_id: ID de la tarea (activityId en get_pending_assignments).
+    """
+    _init()
+    return fmt(_homework_status(section_id, homework_id))
+
+
+@mcp.tool()
+def submit_homework(section_id: str, homework_id: str, file_paths: list[str] = None,
+                    comment: str = None, confirm: bool = False) -> str:
+    """Entregar una tarea (HOMEWORK) en UTP+Class subiendo archivos locales y/o un comentario.
+
+    IMPORTANTE: entregar consume un intento y suele ser irreversible (muchas tareas permiten 1 solo intento).
+    Con confirm=False (por defecto) NO sube ni envia nada: valida los archivos y devuelve una vista
+    previa (tarea, plazo, intentos restantes, archivos). Solo con confirm=True sube los archivos y entrega.
+    Muestra la vista previa al usuario y pide su confirmacion explicita antes de llamar con confirm=True.
+
+    Args:
+        section_id: ID de la seccion del curso (sectionId).
+        homework_id: ID de la tarea (activityId en get_pending_assignments).
+        file_paths: Rutas locales absolutas de los archivos a entregar (maximo 8).
+        comment: (Opcional) Texto de respuesta/comentario de la entrega.
+        confirm: False = solo vista previa. True = subir y entregar de verdad.
+    """
+    _init()
+    file_paths = file_paths or []
+    if not file_paths and not comment:
+        return fmt_error("Debes indicar al menos un archivo o un comentario.")
+    if len(file_paths) > 8:
+        return fmt_error("El LMS permite como maximo 8 archivos por entrega.")
+
+    files_preview = []
+    for p in file_paths:
+        if not os.path.isfile(p):
+            return fmt_error(f"El archivo no existe: {p}")
+        files_preview.append({"name": os.path.basename(p), "size_kb": round(os.path.getsize(p) / 1024, 1), "path": p})
+
+    status = _homework_status(section_id, homework_id)
+    problems = []
+    if not status["assignment_id"]:
+        problems.append("No se encontro tu asignacion para esta tarea (¿homework_id o section_id incorrectos?).")
+    if status["attempts_left"] is not None and status["attempts_left"] <= 0:
+        problems.append("No te quedan intentos para esta tarea.")
+    if status["is_group"] and not (status["team_set_id"] and status["team_id"]):
+        problems.append("La tarea es grupal pero no tienes equipo asignado.")
+    if status["is_flexible_evaluation"]:
+        problems.append("La tarea usa evaluacion flexible (submissionType); esta herramienta aun no la soporta.")
+
+    preview = {"homework": status, "files": files_preview, "comment": comment, "problems": problems}
+    if problems:
+        return fmt({"sent": False, **preview})
+    if not confirm:
+        return fmt({"sent": False, "dry_run": True,
+                    "note": "Vista previa: no se subio ni entrego nada. Llama de nuevo con confirm=True para entregar.",
+                    **preview})
+
+    uploaded = []
+    for p in file_paths:
+        try:
+            up = _class.upload_file(p)
+        except Exception as e:
+            return fmt_error(f"Error subiendo {os.path.basename(p)}: {e}. No se entrego la tarea.")
+        uploaded.append({"id": str(uuid.uuid4()), "name": up["name"], "url": up["url"], "size": up["size"]})
+
+    try:
+        if status["is_group"]:
+            result = _class.send_team_homework(section_id, homework_id, status["team_set_id"],
+                                               status["team_id"], uploaded, comment)
+        else:
+            result = _class.send_homework(section_id, status["assignment_id"], uploaded, comment)
+    except httpx.HTTPStatusError as e:
+        return fmt_error(f"El LMS rechazo la entrega ({e.response.status_code}): {e.response.text[:500]}")
+
+    after = _homework_status(section_id, homework_id)
+    return fmt({"sent": True, "files": uploaded, "api_response": result, "homework_after": after})
 
 
 # ─── Tools: Messages ────────────────────────────────────────────────────────
